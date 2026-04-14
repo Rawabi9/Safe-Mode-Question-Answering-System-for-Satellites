@@ -16,7 +16,6 @@ st.markdown("""
     .stRadio > div { background-color: #ffffff; padding: 15px; border-radius: 10px; border: 1px solid #002E5D; }
     .st-success { background-color: #E8F5E9 !important; border: 2px solid #43A047 !important; color: #1B5E20 !important; border-radius: 10px !important; }
     .st-info { background-color: #F3E5F5 !important; border: 2px solid #8E24AA !important; color: #4A148C !important; border-radius: 10px !important; }
-    /* إخفاء شريط الهيدر العلوي الأسود تماماً */
     header[data-testid="stHeader"] {
         visibility: hidden;
         height: 0%;
