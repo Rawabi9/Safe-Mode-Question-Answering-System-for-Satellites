@@ -3,7 +3,7 @@ import os, json, requests,re
 
 from pypdf import PdfReader
 
-# --- 1. UI CONFIGURATION ---
+# --- 1. UI  ---
 st.set_page_config(page_title="KACST Satellite ", layout="wide")
 
 st.markdown("""
@@ -24,7 +24,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. HEADER ---
+# --- 2. Header ---
 with st.container():
     col_logo, col_titles = st.columns([1, 4])
     with col_logo:
@@ -33,29 +33,35 @@ with st.container():
     with col_titles:
         st.markdown("<div class='header-text'><h1>Satellite Safe Mode: QA & Decision Support System</h1></div>", unsafe_allow_html=True)
 
-# --- 3. DATA ENGINE ---
+# --- 3. PDF Extraction ---
 @st.cache_resource
 def get_operational_data():
     relevant_chunks = []
     pdf_files = [f for f in os.listdir() if f.endswith(".pdf")]
+    
     pdf_files.sort(key=lambda x: "NOS3" in x.upper(), reverse=True)
+    
     for pdf in pdf_files:
         try:
             reader = PdfReader(pdf)
             for page in reader.pages:
                 text = page.extract_text()
+                if not text: continue 
+                
                 lines = text.split('\n')
                 for line in lines:
-                    if any(cmd in line.lower() for cmd in ['switch', 'disable', 'transition', 'voltage', 'connection', 'failure', 'error', 'high temp', 'low temp', 'tumbling', 'reboot']):
+                    if any(cmd in line.lower() for cmd in ['switch', 'disable', 'transition',
+                   'voltage', 'connection', 'failure', 'error', 'high temp', 'low temp', 'tumbling', 'reboot', 'safe mode', 'status']):
                         relevant_chunks.append(line.strip())
-        except: continue
-    return "\n".join(relevant_chunks[:40])
+        except: 
+            continue
+            
+    return "\n".join(relevant_chunks[:100]) 
 
 context = get_operational_data()
 
-# --- 4. DOMAIN CHECK FUNCTION ---
+# --- 4. Domain Validtion ---
 def is_in_domain(query):
-    # وظيفة سريعة تسأل الموديل إذا كان السؤال يخص نطاق عملنا
     check_prompt = f"Task: Categorize input. Respond with 'YES' if the input is about satellites, satellite safe mode, or technical space anomalies. Respond with 'NO' for anything else.\nInput: {query}\nResponse:"
     try:
         r = requests.post("http://localhost:11434/api/generate", 
@@ -70,23 +76,22 @@ with st.sidebar:
     mode = st.radio("SELECT SERVICE:", ["🚨 Immediate Action", "🔍 Q&A"])
     st.markdown("---")
 
-# --- 6. INPUT & PROCESSING ---
+# --- 6. User Input ---
 st.markdown("### <span style='color: #002E5D;'>⌨️ Enter a Satellite Scenario or Question: </span>", unsafe_allow_html=True)
 status = st.text_input("")
 
 if status:
-    # 1. فحص الرموز والحروف العشوائية (Garbage Input Check)
-    # الشرط: يجب أن يحتوي النص على كلمة واحدة على الأقل بطول 3 حروف أو أكثر، ولا يتكون من رموز فقط
+    # --- Input Validtion ---
     is_gibberish = not re.search(r'\b[a-zA-Z]{3,}\b', status)
     has_symbols_only = not re.search(r'[a-zA-Z0-9]', status)
 
     if is_gibberish or has_symbols_only:
         st.error("⚠️ Invalid Input: Please enter a valid technical question or scenario.")
-    # الفحص الأول: هل السؤال ضمن الدومين تقنياً؟
+    # --- Domain Validtion ---
     elif not is_in_domain(status):
         st.error("❌ Out of Domain: This query does not relate to Satellite Safe Mode or technical operations.")
     else:
-        # --- كودك الأصلي كما هو (بدون تغيير في الأجوبة) ---
+        # --- Prompt Generation ---
         if "Immediate Action" in mode:
             prompt = f"""
             SYSTEM: You are a NASA Ground Operator. Use the PROVIDED DATA ONLY.
@@ -110,7 +115,7 @@ if status:
             """
             style = "info"
             res_header = " TECHNICAL ANALYSIS"
-
+        # --- AI Generation ---
         placeholder = st.empty()
         full_res = ""
         try:
